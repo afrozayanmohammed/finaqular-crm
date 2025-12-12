@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Finaqular Staff CRM Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+/* --------------------------------------------------
+   GEN-Z FINTECH GLASS UI THEME
+-------------------------------------------------- */
+:root {
+  --bg1:#050a1a;
+  --bg2:#091328;
+  --glass:rgba(255,255,255,0.05);
+  --accent:#00f0ff;
+  --accent2:#00aaff;
+  --danger:#ff4d6d;
+  --success:#10b981;
+  --muted:#99a8c0;
+  font-family:"Inter",sans-serif;
+}
+
+body {
+  margin:0;
+  background: radial-gradient(circle at top,#0d1a37,#050a1a 60%);
+  color:white;
+}
+
+/* floating blobs */
+.blob {
+  position:fixed; width:320px; height:320px;
+  background:radial-gradient(circle,rgba(0,255,255,0.25),transparent);
+  border-radius:50%;
+  filter:blur(75px);
+  animation:float 10s infinite ease-in-out;
+  z-index:-1;
+}
+.blob:nth-child(1){ left:-10%; top:5%; }
+.blob:nth-child(2){ right:-10%; bottom:5%; animation-delay:3s; }
+
+@keyframes float {
+  0%{ transform:translate(0,0); }
+  50%{ transform:translate(40px,-30px); }
+  100%{ transform:translate(0,0); }
+}
+
+/* LOGIN SCREEN */
+#login-screen {
+  max-width:380px; margin:90px auto; padding:30px;
+  background:var(--glass); border-radius:16px;
+  backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,0.08);
+  box-shadow:0 0 40px rgba(0,255,255,0.18);
+}
+.logo {
+  font-size:28px; font-weight:900;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;
+  color:transparent;
+}
+input {
+  width:100%; padding:12px; margin-top:12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.03);
+  color:white;
+}
+button {
+  width:100%; padding:12px; margin-top:18px;
+  border-radius:10px; cursor:pointer; border:none;
+  font-weight:700; font-size:15px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  color:#012626;
+}
+#error-msg {
+  margin-top:10px; text-align:center;
+  color:var(--danger); font-size:13px;
+}
+
+/* DASHBOARD */
+#dashboard { display:none; padding:20px; max-width:1200px; margin:auto; }
+
+.card {
+  background:var(--glass);
+  padding:16px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.05);
+  margin-bottom:14px;
+}
+
+/* Table */
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th,td { padding:10px; border-bottom:1px solid rgba(255,255,255,0.05); }
+th { color:var(--muted); font-size:12px; text-transform:uppercase; }
+
+.status-pill {
+  padding:5px 10px; border-radius:20px; font-weight:700; font-size:12px;
+}
+.s-new { color:var(--accent); }
+.s-contacted { color:#ffd166; }
+.s-qualified { color:#c7a6ff; }
+.s-proposal { color:#9ae6b4; }
+.s-won { color:var(--success); }
+.s-lost { color:var(--danger); }
+
+.action-btn {
+  padding:6px 10px; border-radius:8px;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(255,255,255,0.08);
+  cursor:pointer; color:#d3e2ff;
+}
+.action-btn:hover { background:rgba(255,255,255,0.12); }
+
+/* MODAL */
+.modal-backdrop {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.6);
+  display:none;
+  align-items:center; justify-content:center;
+  z-index:999;
+}
+.modal {
+  width:100%; max-width:580px;
+  background:#091223;
+  padding:20px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.modal input, .modal textarea, .modal select {
+  width:100%; padding:10px; margin-top:10px;
+  border-radius:10px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);
+  color:white;
+}
+.modal button {
+  padding:10px; border-radius:10px; margin-top:14px;
+  width:100%; cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<!-- Background Blobs -->
+<div class="blob"></div>
+<div class="blob"></div>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="logo">FINAQULAR</div>
+  <p style="color:var(--muted);margin-top:6px">Staff Login Portal</p>
+
+  <input id="login-email" type="email" placeholder="Username">
+  <input id="login-pass" type="password" placeholder="Password">
+
+  <button id="login-btn" type="button">Sign In</button>
+  <div id="error-msg"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <h2>Finaqular Staff Dashboard</h2>
+
+  <div class="card">
+    <h3>Lead List</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Status</th>
+          <th>Owner</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+        <tr><td colspan="5" style="text-align:center;color:var(--muted)">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h3>Edit Lead</h3>
+
+    <input id="m-name" placeholder="Name">
+    <input id="m-contact" placeholder="Contact">
+    <input id="m-owner" placeholder="Owner">
+
+    <select id="m-status">
+      <option>New</option>
+      <option>Contacted</option>
+      <option>Qualified</option>
+      <option>Proposal</option>
+      <option>Won</option>
+      <option>Lost</option>
+    </select>
+
+    <textarea id="m-notes" placeholder="Internal notes"></textarea>
+
+    <button id="save-lead" style="background:var(--accent);color:#002b2b;font-weight:700">Save</button>
+    <button id="close-modal" style="background:#333;color:white">Close</button>
+  </div>
+</div>
+
+<!-- FIREBASE + LOGIC -->
+<script type="module">
+/* ----------------------------------------------------
+   FIREBASE CONFIG (UPDATE THIS!)
+---------------------------------------------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore, collection, onSnapshot,
+  doc, updateDoc, getDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDPqbxxoNUos9Zqe-En4qQghHPLjCUN3vA",
+  authDomain: "finaqular-crm.firebaseapp.com",
+  projectId: "finaqular-crm",
+  storageBucket: "finaqular-crm.firebasestorage.app",
+  messagingSenderId: "708297871714",
+  appId: "1:708297871714:web:bff1ff1976f33bb1b55c3b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+/* ----------------------------------------------------
+   LOGIN SYSTEM (STATIC CREDENTIALS)
+---------------------------------------------------- */
+document.addEventListener("DOMContentLoaded", () => {
+
+  const LOGIN_EMAIL = "admin@finaqular.com";
+  const LOGIN_PASS  = "admin@123";
+
+  const loginBtn = document.getElementById("login-btn");
+
+  loginBtn.addEventListener("click", () => {
+
+    const email = document.getElementById("login-email").value.trim();
+    const pass  = document.getElementById("login-pass").value.trim();
+    const err   = document.getElementById("error-msg");
+
+    if (email === LOGIN_EMAIL && pass === LOGIN_PASS) {
+
+      // hide login
+      document.getElementById("login-screen").style.display = "none";
+
+      // show dashboard
+      document.getElementById("dashboard").style.display = "block";
+
+      err.textContent = "";
+
+    } else {
+      err.textContent = "Incorrect username or password.";
+    }
+  });
+});
+
+/* ----------------------------------------------------
+   REALTIME FIRESTORE LEAD LIST
+---------------------------------------------------- */
+function loadLeads() {
+  const q = query(collection(db, "leads"), orderBy("createdAt", "desc"));
+
+  onSnapshot(q, snapshot => {
+    const tbody = document.getElementById("table-body");
+    tbody.innerHTML = "";
+
+    snapshot.forEach(docSnap => {
+      const d = docSnap.data();
+      const id = docSnap.id;
+
+      const row = `
+      <tr>
+        <td>${d.name || "-"}</td>
+        <td>${d.contact || "-"}</td>
+        <td><span class="status-pill s-${(d.status||"new").toLowerCase()}">${d.status}</span></td>
+        <td>${d.owner || "-"}</td>
+        <td><button class="action-btn" onclick="editLead('${id}')">Edit</button></td>
+      </tr>`;
+
+      tbody.innerHTML += row;
+    });
+  });
+}
+loadLeads();
+
+/* ----------------------------------------------------
+   EDIT MODAL LOGIC
+---------------------------------------------------- */
+window.editLead = async function(id) {
+  currentLeadId = id;
+
+  const modal = document.getElementById("modal");
+  modal.style.display = "flex";
+
+  const snap = await getDoc(doc(db,"leads",id));
+  const d = snap.data();
+
+  document.getElementById("m-name").value = d.name || "";
+  document.getElementById("m-contact").value = d.contact || "";
+  document.getElementById("m-owner").value = d.owner || "";
+  document.getElementById("m-status").value = d.status || "New";
+  document.getElementById("m-notes").value = d.notes || "";
+};
+
+document.getElementById("close-modal").addEventListener("click", () => {
+  document.getElementById("modal").style.display="none";
+});
+
+let currentLeadId = null;
+
+document.getElementById("save-lead").addEventListener("click", async () => {
+
+  await updateDoc(doc(db,"leads",currentLeadId), {
+    name: document.getElementById("m-name").value,
+    contact: document.getElementById("m-contact").value,
+    owner: document.getElementById("m-owner").value,
+    status: document.getElementById("m-status").value,
+    notes: document.getElementById("m-notes").value,
+    updatedAt: serverTimestamp()
+  });
+
+  document.getElementById("modal").style.display="none";
+});
+</script>
+
+</body>
+</html>

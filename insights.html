@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Finaqular — Insights & Analytics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+/* ---------------------------------------------------
+   Gen-Z Fintech Neon/Glass Theme
+--------------------------------------------------- */
+:root {
+  --bg1:#050a1a;
+  --bg2:#091328;
+  --glass:rgba(255,255,255,0.05);
+  --accent:#00f0ff;
+  --accent2:#00aaff;
+  --success:#10b981;
+  --danger:#ef4444;
+  --muted:#9bb0c9;
+  font-family:"Inter",sans-serif;
+}
+
+body {
+  margin:0;
+  background:radial-gradient(circle at top,#10223e,#050a1a 70%);
+  color:white;
+  padding-bottom:60px;
+}
+
+/* floating neon blobs */
+.blob {
+  position:fixed;width:350px;height:350px;
+  background:radial-gradient(circle,rgba(0,255,255,0.3),transparent);
+  border-radius:50%;filter:blur(90px);
+  animation:float 10s ease-in-out infinite;
+  z-index:-1;
+}
+.blob:nth-child(1){ top:5%; left:-10%; }
+.blob:nth-child(2){ bottom:5%; right:-10%; animation-delay:3s; }
+
+@keyframes float {
+  0%{ transform:translate(0,0); }
+  50%{ transform:translate(50px,-40px); }
+  100%{ transform:translate(0,0); }
+}
+
+/* Title */
+.header {
+  text-align:center;
+  padding:20px;
+}
+.header h1 {
+  font-size:32px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  -webkit-background-clip:text;
+  color:transparent;
+}
+.header p { color:var(--muted); }
+
+/* Cards */
+.card {
+  background:var(--glass);
+  backdrop-filter:blur(14px);
+  border-radius:16px;
+  padding:20px;
+  border:1px solid rgba(255,255,255,0.06);
+  margin:18px auto;
+  width:92%;
+  max-width:1200px;
+  box-shadow:0 0 30px rgba(0,255,255,0.1);
+}
+
+.card h2 {
+  margin-bottom:10px;
+  font-size:22px;
+  color:#dff9ff;
+}
+
+/* KPI Badges */
+.kpi-box {
+  display:flex;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.kpi {
+  flex:1;
+  min-width:160px;
+  background:rgba(0,255,255,0.05);
+  padding:16px;
+  border-radius:12px;
+  text-align:center;
+  border:1px solid rgba(255,255,255,0.06);
+}
+.kpi h3 { margin:0; font-size:14px;color:var(--muted); }
+.kpi .value { font-size:26px; font-weight:800;margin-top:4px; }
+
+/* Table */
+table { width:100%;border-collapse:collapse;margin-top:10px; }
+th,td { padding:10px;border-bottom:1px solid rgba(255,255,255,0.08); }
+th { color:var(--muted);text-transform:uppercase;font-size:12px; }
+</style>
+</head>
+
+<body>
+
+<!-- BACKGROUND BLOBS -->
+<div class="blob"></div>
+<div class="blob"></div>
+
+<div class="header">
+  <h1>FINAQULAR — Insights Dashboard</h1>
+  <p>Analytics for management & decision makers</p>
+</div>
+
+<!-- KPIs -->
+<div class="card">
+  <h2>Key Metrics</h2>
+  <div class="kpi-box">
+    <div class="kpi">
+      <h3>Total Leads</h3>
+      <div class="value" id="kpi-total">0</div>
+    </div>
+    <div class="kpi">
+      <h3>Conversion Rate (Won)</h3>
+      <div class="value" id="kpi-conv">0%</div>
+    </div>
+    <div class="kpi">
+      <h3>Lost Ratio</h3>
+      <div class="value" id="kpi-lost">0%</div>
+    </div>
+    <div class="kpi">
+      <h3>Active Leads</h3>
+      <div class="value" id="kpi-active">0</div>
+    </div>
+  </div>
+</div>
+
+<!-- Funnel -->
+<div class="card">
+  <h2>Sales Funnel Overview</h2>
+  <canvas id="funnelChart" height="100"></canvas>
+</div>
+
+<!-- Status distribution -->
+<div class="card">
+  <h2>Status Distribution</h2>
+  <canvas id="statusChart" height="100"></canvas>
+</div>
+
+<!-- Source pie -->
+<div class="card">
+  <h2>Lead Source Breakdown</h2>
+  <canvas id="sourceChart" height="100"></canvas>
+</div>
+
+<!-- Weekly Trend -->
+<div class="card">
+  <h2>Weekly Lead Trend</h2>
+  <canvas id="trendChart" height="100"></canvas>
+</div>
+
+<!-- Top owners -->
+<div class="card">
+  <h2>Top Performing Owners</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Owner</th>
+        <th>Total Leads</th>
+        <th>Won</th>
+      </tr>
+    </thead>
+    <tbody id="owner-table"></tbody>
+  </table>
+</div>
+
+
+<!-- ===============================
+     FIREBASE + ANALYTICS LOGIC
+================================ -->
+<script type="module">
+/* -------------------------------
+   FIREBASE CONFIG (REPLACE THIS)
+-------------------------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore, collection, onSnapshot, query, orderBy
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDPqbxxoNUos9Zqe-En4qQghHPLjCUN3vA",
+  authDomain: "finaqular-crm.firebaseapp.com",
+  projectId: "finaqular-crm",
+  storageBucket: "finaqular-crm.firebasestorage.app",
+  messagingSenderId: "708297871714",
+  appId: "1:708297871714:web:bff1ff1976f33bb1b55c3b"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+
+/* -------------------------------
+   REALTIME FIRESTORE SYNC
+-------------------------------- */
+onSnapshot(query(collection(db,"leads"), orderBy("createdAt","asc")), snapshot => {
+  const leads = snapshot.docs.map(d => ({ id:d.id, ...d.data() }));
+  updateAnalytics(leads);
+});
+
+
+/* -------------------------------
+   ANALYTICS CALCULATIONS
+-------------------------------- */
+function updateAnalytics(leads){
+
+  const total = leads.length;
+  const won = leads.filter(l => l.status==="Won").length;
+  const lost = leads.filter(l => l.status==="Lost").length;
+
+  // Active = not won or lost
+  const active = total - (won + lost);
+
+  document.getElementById("kpi-total").textContent = total;
+  document.getElementById("kpi-conv").textContent = total ? Math.round((won/total)*100)+"%" : "0%";
+  document.getElementById("kpi-lost").textContent = total ? Math.round((lost/total)*100)+"%" : "0%";
+  document.getElementById("kpi-active").textContent = active;
+
+
+  /* -------- Funnel Data -------- */
+  const funnelCounts = {
+    New: leads.filter(l=>l.status==="New").length,
+    Contacted: leads.filter(l=>l.status==="Contacted").length,
+    Qualified: leads.filter(l=>l.status==="Qualified").length,
+    Proposal: leads.filter(l=>l.status==="Proposal").length,
+    Won: won,
+    Lost: lost
+  };
+
+  updateFunnelChart(Object.values(funnelCounts));
+  updateStatusChart(funnelCounts);
+
+
+  /* -------- Source Breakdown -------- */
+  const sourceCounts = {};
+  leads.forEach(l => {
+    const s = l.source || "Unknown";
+    sourceCounts[s] = (sourceCounts[s]||0)+1;
+  });
+  updateSourceChart(sourceCounts);
+
+
+  /* -------- Weekly Trend -------- */
+  const days = [...Array(7).keys()].map(i => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6-i));
+    return d.toLocaleDateString();
+  });
+
+  const trendData = days.map(day => {
+    return leads.filter(l => {
+      if(!l.createdAt?.seconds) return false;
+      const d = new Date(l.createdAt.seconds*1000).toLocaleDateString();
+      return d === day;
+    }).length;
+  });
+
+  updateTrendChart(days, trendData);
+
+
+  /* -------- Owner Performance -------- */
+  const owners = {};
+  leads.forEach(l=>{
+    const own = l.owner || "Unassigned";
+    if(!owners[own]) owners[own] = { total:0, won:0 };
+    owners[own].total++;
+    if(l.status==="Won") owners[own].won++;
+  });
+
+  const table = document.getElementById("owner-table");
+  table.innerHTML = Object.entries(owners).map(([o,data]) =>
+    `<tr><td>${o}</td><td>${data.total}</td><td>${data.won}</td></tr>`
+  ).join("");
+}
+
+
+/* -------------------------------
+   CHARTS
+-------------------------------- */
+let funnelChart, statusChart, sourceChart, trendChart;
+
+function updateFunnelChart(values){
+  if(funnelChart) funnelChart.destroy();
+  funnelChart = new Chart(document.getElementById("funnelChart"), {
+    type:"bar",
+    data:{
+      labels:["New","Contacted","Qualified","Proposal","Won","Lost"],
+      datasets:[{
+        label:"Leads",
+        data:values,
+        backgroundColor:"#00f0ff88"
+      }]
+    },
+    options:{ responsive:true }
+  });
+}
+
+function updateStatusChart(funnelCounts){
+  if(statusChart) statusChart.destroy();
+  statusChart = new Chart(document.getElementById("statusChart"), {
+    type:"bar",
+    data:{
+      labels:Object.keys(funnelCounts),
+      datasets:[{
+        label:"Count",
+        data:Object.values(funnelCounts),
+        backgroundColor:"#00aaff88"
+      }]
+    }
+  });
+}
+
+function updateSourceChart(sourceCounts){
+  if(sourceChart) sourceChart.destroy();
+  sourceChart = new Chart(document.getElementById("sourceChart"), {
+    type:"pie",
+    data:{
+      labels:Object.keys(sourceCounts),
+      datasets:[{
+        data:Object.values(sourceCounts),
+        backgroundColor:["#00f0ff","#00aaff","#00ffc8","#0099ff","#77ddff","#33bbff"]
+      }]
+    }
+  });
+}
+
+function updateTrendChart(days, trend){
+  if(trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById("trendChart"), {
+    type:"line",
+    data:{
+      labels:days,
+      datasets:[{
+        label:"Leads / Day",
+        data:trend,
+        borderColor:"#00f0ff",
+        backgroundColor:"#00f0ff22",
+        fill:true,
+        tension:0.3
+      }]
+    }
+  });
+}
+</script>
+
+</body>
+</html>
